@@ -6,8 +6,8 @@ from starlette.responses import FileResponse
 app = FastAPI()
 
 # include image folder in the project folder
-img_folder = './images'
-app.mount('/image', StaticFiles(directory="image"), name='image')
+app.mount("/image", StaticFiles(directory="image"), name="image")
+app.mount("/style", StaticFiles(directory="style"), name="style")
 
 
 @app.get("/")
