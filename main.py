@@ -18,6 +18,10 @@ app.mount("/style", StaticFiles(directory="style"), name="style")
 async def index():
     return FileResponse("static/index.html")
 
+@app.get("/login")
+async def login_page():
+    return FileResponse("static/login.html")    
+
 
 @app.get("/books/{book_id}", response_model=BookItem)
 async def read_item(book_id: int):
