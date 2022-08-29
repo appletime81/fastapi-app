@@ -1,13 +1,20 @@
 from db import db
 from typing import Union
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from starlette.responses import FileResponse
+from basemodel import BookItem, CreateUser
+from passlib.context import CryptContext
+
+
+bcrypt_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 app = FastAPI()
-from basemodel import BookItem
 
+
+def get_password_hash(password: str):
+    return bcrypt_context.hash(password)
 
 # include image folder, style folder
 app.mount("/image", StaticFiles(directory="image"), name="image")
@@ -43,3 +50,22 @@ async def read_items():
         items.append(items_dict)
     print(items)
     return items
+
+
+# ---- 會員系統 ----
+@app.post("/create/user")
+async def create_new_user(create_user: CreateUser, request: Request):
+    # get request post content
+    data = await request.json()
+    print(data)
+
+    # create new user
+    user = {
+        "username": data["username"],
+        "password": data["password"],
+        "email": data["email"],
+        "first_name": data["first_name"],
+        "last_name": data["last_name"],
+    }
+    db.collection("users").document(data["username"]).set(user)
+    return {"message": "success"}
