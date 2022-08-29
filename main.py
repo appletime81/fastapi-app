@@ -29,7 +29,7 @@ def verify_password(plain_password, hashed_password):
 
 def authenticate_user(username: str, password: str):
     # get user from firebase
-    user = db.collection(u"users").document(f"{username}").get()
+    user = db.collection("users").document(f"{username}").get()
     # get user value as dict
     user = user.to_dict()
 
