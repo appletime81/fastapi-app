@@ -16,6 +16,20 @@
     transition: opacity .6s ease;
 }
 
-.carousel-indicators .active {
-    opacity: .5;
+
+.carousel-control-prev,
+.carousel-control-next {
+    width: 50px;
+    height: 50px;
+    background-color: #000;
+    border-radius: 50%;
+    top: calc(50% - 25px);
+}
+
+.carousel-control-prev {
+    left: 5%;
+}
+
+.carousel-control-next {
+    right: 5%;
 }

@@ -110,6 +110,7 @@ async def create_new_user(create_user: CreateUser, request: Request):
 
 @app.post("/token")
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
+    print(form_data.__dict__)
     user = authenticate_user(form_data.username, form_data.password)
     if not user:
         return {"error": "Incorrect username or password"}
