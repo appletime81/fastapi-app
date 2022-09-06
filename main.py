@@ -5,14 +5,17 @@ from datetime import datetime, timedelta
 from basemodel import BookItem, CreateUser
 from fastapi.staticfiles import StaticFiles
 from starlette.responses import FileResponse, RedirectResponse
-from fastapi import FastAPI, Request, Depends, Response, status
+from fastapi import FastAPI, Request, Depends, Response, status, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from typing import Optional
+from fastapi.templating import Jinja2Templates
 
 
 SECRET_KEY = "BMVvvp4j8Ai7MYfGPwVn9gKazl529yNX"
 ALGORITHM = "HS256"
+
+templates = Jinja2Templates(directory="static")
 
 bcrypt_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -64,7 +67,6 @@ class LoginForm:
         self.password = form.get("password")
 
 
-
 # include image folder, style folder
 app.mount("/image", StaticFiles(directory="image"), name="image")
 app.mount("/style", StaticFiles(directory="style"), name="style")
@@ -75,7 +77,12 @@ async def index():
     return FileResponse("static/index.html")
 
 
-@app.get("/login", responses=HTMLResponse)
+@app.get("/login")
+async def login_page(request: Request):
+    return templates.TemplateResponse("login.html", {"request": request})
+
+
+@app.post("/auth", response_class=HTMLResponse)
 async def login(request: Request):
     try:
         form = LoginForm(request)
@@ -84,9 +91,15 @@ async def login(request: Request):
         validate_user_cookie = await login_for_access_token(response, form_data=form)
         if not validate_user_cookie:
             msg = "Invalid username or password"
-            return templates.TemplateResponse("login.html", {"request": request, "msg": msg})
-
-
+            return templates.TemplateResponse(
+                "login.html", {"request": request, "msg": msg}
+            )
+        return response
+    except HTTPException:
+        msg = "Unknown error"
+        return templates.TemplateResponse(
+            "login.html", {"request": request, "msg": msg}
+        )
 
 
 @app.get("/books/{book_id}", response_model=BookItem)
@@ -133,16 +146,15 @@ async def create_new_user(create_user: CreateUser, request: Request):
 
 
 @app.post("/token")
-async def login_for_access_token(response: Response, form_data: OAuth2PasswordRequestForm = Depends()):
+async def login_for_access_token(
+    response: Response, form_data: OAuth2PasswordRequestForm = Depends()
+):
     print(form_data.__dict__)
     user = authenticate_user(form_data.username, form_data.password)
+    print(user)
     if not user:
         raise False
-    token_expires = timedelta(minutes=20)
-    token = create_access_token(
-        user.username,
-        user.id,
-        expires_delta=token_expires
-    )
-    response.set_cookie(key="access_token", value=f"Bearer {token}", httponly=True)
+    token_expires = timedelta(minutes=1)
+    token = create_access_token(user.get("username"), user.get("id"), expires_delta=token_expires)
+    response.set_cookie(key="access_token", value=token, httponly=True)
     return True
