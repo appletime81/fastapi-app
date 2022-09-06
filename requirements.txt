@@ -61,3 +61,4 @@ uvicorn==0.18.3
 watchfiles==0.16.1
 websockets==10.3
 wincertstore==0.2
+jose
