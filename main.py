@@ -55,6 +55,29 @@ def create_access_token(username: str, user_id: int, expires_delta: timedelta = 
     return jwt.encode(encode, SECRET_KEY, algorithm=ALGORITHM)
 
 
+def get_user_exception():
+    return HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Unauthorized",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
+async def get_current_user(request: Request):
+    try:
+        token = request.cookies.get("access_token")
+        if not token:
+            return None
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        user_id: int = payload.get("id")
+        if not username or not user_id:
+            return None
+        return {"username": username, "id": user_id}
+    except JWTError:
+        return None
+
+
 class LoginForm:
     def __init__(self, request: Request):
         self.request: Request = request
@@ -155,6 +178,8 @@ async def login_for_access_token(
     if not user:
         raise False
     token_expires = timedelta(minutes=1)
-    token = create_access_token(user.get("username"), user.get("id"), expires_delta=token_expires)
+    token = create_access_token(
+        user.get("username"), user.get("id"), expires_delta=token_expires
+    )
     response.set_cookie(key="access_token", value=token, httponly=True)
     return True
