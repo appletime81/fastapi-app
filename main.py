@@ -23,6 +23,42 @@ oauth2_bearer = OAuth2PasswordBearer(tokenUrl="/token")
 
 app = FastAPI()
 
+# include image folder, style folder
+app.mount("/image", StaticFiles(directory="image"), name="image")
+app.mount("/style", StaticFiles(directory="style"), name="style")
+
+
+class LoginForm:
+    def __init__(self, request: Request):
+        self.request: Request = request
+        self.username: Optional[str] = None
+        self.password: Optional[str] = None
+
+    async def create_oauth_form(self):
+        form = await self.request.form()
+        self.username = form.get("username")
+        self.password = form.get("password")
+
+
+# -------------------------------- 會員系統 Function--------------------------------
+async def get_current_user(request: Request):
+    try:
+        token = request.cookies.get("access_token")
+        if not token:
+            return None
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        # check if expired
+        if payload.get("exp") < datetime.utcnow():
+            return None
+
+        username: str = payload.get("sub")
+        user_id: int = payload.get("id")
+        if not username or not user_id:
+            return None
+        return {"username": username, "id": user_id}
+    except JWTError:
+        return None
+
 
 def get_password_hash(password: str):
     return bcrypt_context.hash(password)
@@ -63,36 +99,7 @@ def get_user_exception():
     )
 
 
-async def get_current_user(request: Request):
-    try:
-        token = request.cookies.get("access_token")
-        if not token:
-            return None
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
-        user_id: int = payload.get("id")
-        if not username or not user_id:
-            return None
-        return {"username": username, "id": user_id}
-    except JWTError:
-        return None
-
-
-class LoginForm:
-    def __init__(self, request: Request):
-        self.request: Request = request
-        self.username: Optional[str] = None
-        self.password: Optional[str] = None
-
-    async def create_oauth_form(self):
-        form = await self.request.form()
-        self.username = form.get("username")
-        self.password = form.get("password")
-
-
-# include image folder, style folder
-app.mount("/image", StaticFiles(directory="image"), name="image")
-app.mount("/style", StaticFiles(directory="style"), name="style")
+# -------------------------------- 會員系統 Function--------------------------------
 
 
 @app.get("/")
@@ -103,26 +110,6 @@ async def index():
 @app.get("/login")
 async def login_page(request: Request):
     return templates.TemplateResponse("login.html", {"request": request})
-
-
-@app.post("/auth", response_class=HTMLResponse)
-async def login(request: Request):
-    try:
-        form = LoginForm(request)
-        await form.create_oauth_form()
-        response = RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
-        validate_user_cookie = await login_for_access_token(response, form_data=form)
-        if not validate_user_cookie:
-            msg = "Invalid username or password"
-            return templates.TemplateResponse(
-                "login.html", {"request": request, "msg": msg}
-            )
-        return response
-    except HTTPException:
-        msg = "Unknown error"
-        return templates.TemplateResponse(
-            "login.html", {"request": request, "msg": msg}
-        )
 
 
 @app.get("/books/{book_id}", response_model=BookItem)
@@ -147,7 +134,27 @@ async def read_items():
     return items
 
 
-# ---- 會員系統 ----
+# -------------------------------- 會員系統 --------------------------------
+@app.post("/auth", response_class=HTMLResponse)
+async def login(request: Request):
+    try:
+        form = LoginForm(request)
+        await form.create_oauth_form()
+        response = RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
+        validate_user_cookie = await login_for_access_token(response, form_data=form)
+        if not validate_user_cookie:
+            msg = "Invalid username or password"
+            return templates.TemplateResponse(
+                "login.html", {"request": request, "msg": msg}
+            )
+        return response
+    except HTTPException:
+        msg = "Unknown error"
+        return templates.TemplateResponse(
+            "login.html", {"request": request, "msg": msg}
+        )
+
+
 @app.post("/create/user")
 async def create_new_user(create_user: CreateUser, request: Request):
     # get request post content
@@ -183,3 +190,21 @@ async def login_for_access_token(
     )
     response.set_cookie(key="access_token", value=token, httponly=True)
     return True
+
+
+@app.get("/logout")
+async def logout(request: Request):
+    msg = "Logout success"
+    response = templates.TemplateResponse(
+        "login.html", {"request": request, "msg": msg}
+    )
+    response.delete_cookie("access_token")
+    return response
+
+
+@app.get("/userinfo")
+async def get_user_info(request: Request):
+    user = await get_current_user(request)
+    if not user:
+        return get_user_exception()
+    return user
