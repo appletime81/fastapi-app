@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from typing import Optional
 
+
 # book item model
 class BookItem(BaseModel):
     title: str

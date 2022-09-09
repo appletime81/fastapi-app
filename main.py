@@ -206,5 +206,9 @@ async def logout(request: Request):
 async def get_user_info(request: Request):
     user = await get_current_user(request)
     if not user:
-        return get_user_exception()
+        return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
+    id = user.get("id")
+    username = user.get("username")
+    # get user from firebase by username and id all are match
+    user = db.collection("users").document(f"{username}").get()
     return user
